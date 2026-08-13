@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>오답노트 카운터</title>
+    <style>
+        :root {
+            --bg-main: transparent;
+            --text-main: #37352f;
+            --text-sub: #787774;
+            --btn-bg: transparent;
+            --btn-border: #e2e2e2;
+            --btn-hover: #efefef;
+            --btn-text: #37352f;
+            --modal-bg: #ffffff;
+            --modal-border: #e2e2e2;
+            --input-bg: #f7f7f5;
+            --input-border: #e2e2e2;
+            --primary: #37352f;
+            --primary-text: #ffffff;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --text-main: #ffffff;
+                --text-sub: #9b9a97;
+                --btn-border: #474c50;
+                --btn-hover: #2f3437;
+                --btn-text: #ffffff;
+                --modal-bg: #191919;
+                --modal-border: #2f3437;
+                --input-bg: #2f3437;
+                --input-border: #474c50;
+                --primary: #ffffff;
+                --primary-text: #191919;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
+            background: var(--bg-main);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            padding: 1rem;
+        }
+
+        .widget-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .settings-btn {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: transparent;
+            border: none;
+            color: var(--text-sub);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s ease, color 0.2s ease;
+            z-index: 5;
+        }
+        
+        .settings-btn:hover {
+            background: var(--btn-hover);
+            color: var(--text-main);
+        }
+
+        .title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-sub);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .counter-wrapper {
+            margin: 1rem 0;
+            display: flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .count-value {
+            font-size: clamp(3rem, 15vw, 5rem);
+            font-weight: 700;
+            line-height: 1;
+            color: var(--text-main);
+            display: inline-block;
+        }
+
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .pop-animation {
+            animation: pop 0.2s ease-out;
+        }
+
+        .count-unit {
+            font-size: clamp(1rem, 5vw, 1.25rem);
+            font-weight: 600;
+            color: var(--text-sub);
+        }
+
+        .trend-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-sub);
+            margin-bottom: 2rem;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: var(--btn-hover);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            width: 100%;
+        }
+
+        .btn {
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--btn-border);
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            font-weight: 400;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s ease;
+        }
+
+        .btn:hover {
+            background: var(--btn-hover);
+        }
+
+        .sync-btn {
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--btn-border);
+            padding: 0 16px;
+            height: 44px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background 0.2s ease;
+            width: 100%;
+            max-width: 200px;
+        }
+
+        .sync-btn:hover {
+            background: var(--btn-hover);
+        }
+
+        .sync-btn.syncing .sync-icon {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.2);
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .modal-content {
+            background: var(--modal-bg);
+            border: 1px solid var(--modal-border);
+            padding: 1.5rem;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 320px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+            text-align: left;
+            transform: scale(0.95);
+            transition: transform 0.2s ease;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            .modal-content {
+                box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+            }
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+        
+        .modal-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 1.2rem;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .input-group {
+            margin-bottom: 1rem;
+        }
+        
+        .input-group label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-sub);
+            margin-bottom: 0.4rem;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--input-border);
+            background: var(--input-bg);
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.85rem;
+            transition: border-color 0.2s;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--text-main);
+        }
+        
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+        }
+        
+        .btn-text {
+            background: transparent;
+            border: none;
+            color: var(--text-sub);
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.85rem;
+            padding: 6px 12px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+        
+        .btn-text:hover { background: var(--btn-hover); color: var(--text-main); }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: var(--primary-text);
+            border: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        
+        .btn-primary:hover { opacity: 0.8; }
+        
+        .btn-danger {
+            color: #eb5757;
+            margin-right: auto;
+        }
+        .btn-danger:hover {
+            background: rgba(235, 87, 87, 0.1);
+            color: #eb5757;
+        }
+
+        #manualControls, #syncControls { display: none; width: 100%; justify-content: center; }
+        #manualControls.active, #syncControls.active { display: flex; }
+    </style>
+</head>
+<body>
+
+    <div class="widget-container">
+        <!-- Settings Button -->
+        <button class="settings-btn" id="btnOpenSettings" aria-label="설정">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+        </button>
+
+        <div class="title">오답노트 누적</div>
+        
+        <div class="counter-wrapper">
+            <div class="count-value" id="countDisplay">0</div>
+            <div class="count-unit">문제</div>
+        </div>
+
+        <div class="trend-badge" id="trendBadge">
+            <span id="trendIcon">-</span>
+            <span id="trendText">데이터 수집 중</span>
+        </div>
+
+        <div class="controls">
+            <!-- Manual Controls -->
+            <div id="manualControls" class="active">
+                <button class="btn" id="btnDecrease" aria-label="감소">-</button>
+                <button class="btn" id="btnIncrease" aria-label="증가">+</button>
+            </div>
+            
+            <!-- Sync Controls -->
+            <div id="syncControls">
+                <button class="sync-btn" id="btnSync">
+                    <svg class="sync-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                    <span id="syncText">노션 동기화</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Settings Modal Overlay -->
+        <div class="modal-overlay" id="settingsModal">
+            <div class="modal-content">
+                <div class="modal-title">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                    </svg>
+                    노션 연동 설정
+                </div>
+                
+                <div class="input-group">
+                    <label for="notionApiKey">API Key (Integration Token)</label>
+                    <input type="password" id="notionApiKey" placeholder="secret_...">
+                </div>
+                
+                <div class="input-group">
+                    <label for="notionDbId">Database ID</label>
+                    <input type="text" id="notionDbId" placeholder="노션 DB ID 입력">
+                </div>
+                
+                <div class="modal-actions">
+                    <button class="btn-text btn-danger" id="btnDisconnect" style="display: none;">연동 해제</button>
+                    <button class="btn-text" id="btnCancelSettings">취소</button>
+                    <button class="btn-primary" id="btnSaveSettings">저장</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'notion_wrong_answer_count';
+        const HISTORY_KEY = 'notion_wrong_answer_history';
+        const CREDS_KEY = 'notion_api_credentials';
+        
+        let currentCount = 0;
+        let countHistory = [];
+        let credentials = { apiKey: '', dbId: '' };
+
+        const countDisplay = document.getElementById('countDisplay');
+        const btnIncrease = document.getElementById('btnIncrease');
+        const btnDecrease = document.getElementById('btnDecrease');
+        const trendBadge = document.getElementById('trendBadge');
+        const trendIcon = document.getElementById('trendIcon');
+        const trendText = document.getElementById('trendText');
+        
+        const manualControls = document.getElementById('manualControls');
+        const syncControls = document.getElementById('syncControls');
+        const btnSync = document.getElementById('btnSync');
+        const syncText = document.getElementById('syncText');
+        
+        const settingsModal = document.getElementById('settingsModal');
+        const btnOpenSettings = document.getElementById('btnOpenSettings');
+        const btnCancelSettings = document.getElementById('btnCancelSettings');
+        const btnSaveSettings = document.getElementById('btnSaveSettings');
+        const btnDisconnect = document.getElementById('btnDisconnect');
+        const inputApiKey = document.getElementById('notionApiKey');
+        const inputDbId = document.getElementById('notionDbId');
+
+        function init() {
+            const savedCreds = localStorage.getItem(CREDS_KEY);
+            if (savedCreds) {
+                try {
+                    credentials = JSON.parse(savedCreds);
+                } catch(e) {}
+            }
+
+            const savedCount = localStorage.getItem(STORAGE_KEY);
+            if (savedCount !== null) {
+                currentCount = Math.max(0, parseInt(savedCount, 10));
+            }
+
+            const savedHistory = localStorage.getItem(HISTORY_KEY);
+            if (savedHistory) {
+                try {
+                    countHistory = JSON.parse(savedHistory);
+                } catch(e) {
+                    countHistory = [];
+                }
+            }
+            
+            updateMode();
+            updateUI();
+            saveHistory(); 
+            
+            if (credentials.apiKey && credentials.dbId) {
+                fetchNotionData();
+            }
+        }
+        
+        function updateMode() {
+            if (credentials.apiKey && credentials.dbId) {
+                manualControls.classList.remove('active');
+                syncControls.classList.add('active');
+                btnDisconnect.style.display = 'block';
+            } else {
+                manualControls.classList.add('active');
+                syncControls.classList.remove('active');
+                btnDisconnect.style.display = 'none';
+            }
+        }
+
+        function triggerAnimation() {
+            countDisplay.classList.remove('pop-animation');
+            void countDisplay.offsetWidth;
+            countDisplay.classList.add('pop-animation');
+        }
+
+        function updateUI() {
+            countDisplay.innerText = currentCount;
+            updateTrend();
+        }
+
+        function updateTrend() {
+            const now = new Date();
+            const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+            
+            let targetHistory = null;
+            let smallestDiff = Infinity;
+
+            countHistory.forEach(record => {
+                const recordDate = new Date(record.date);
+                const diff = Math.abs(recordDate - sevenDaysAgo);
+                
+                if (diff < smallestDiff && (now - recordDate) > (1 * 24 * 60 * 60 * 1000)) {
+                    smallestDiff = diff;
+                    targetHistory = record.count;
+                }
+            });
+
+            trendBadge.className = 'trend-badge';
+
+            if (targetHistory === null) {
+                trendIcon.innerText = '⏳';
+                trendText.innerText = '비교 데이터 수집 중...';
+                return;
+            }
+
+            const difference = currentCount - targetHistory;
+
+            if (difference > 0) {
+                trendIcon.innerText = '📈';
+                trendText.innerText = `지난주 대비 +${difference}문제`;
+            } else if (difference < 0) {
+                trendIcon.innerText = '📉';
+                trendText.innerText = `지난주 대비 ${difference}문제`;
+            } else {
+                trendIcon.innerText = '−';
+                trendText.innerText = '지난주 대비 변화 없음';
+            }
+        }
+
+        function saveState() {
+            currentCount = Math.max(0, currentCount);
+            localStorage.setItem(STORAGE_KEY, currentCount);
+            saveHistory();
+            updateUI();
+        }
+
+        function saveHistory() {
+            const today = new Date().toISOString().split('T')[0];
+            const existingIndex = countHistory.findIndex(record => record.date.startsWith(today));
+            
+            if (existingIndex >= 0) {
+                countHistory[existingIndex].count = currentCount;
+            } else {
+                countHistory.push({ date: new Date().toISOString(), count: currentCount });
+            }
+
+            if (countHistory.length > 30) {
+                countHistory = countHistory.slice(-30);
+            }
+
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(countHistory));
+        }
+
+        async function fetchNotionData() {
+            if (!credentials.apiKey || !credentials.dbId) return;
+            
+            btnSync.classList.add('syncing');
+            syncText.innerText = '동기화 중...';
+            
+            try {
+                let hasMore = true;
+                let nextCursor = null;
+                let totalCount = 0;
+                
+                const proxyUrl = 'https://corsproxy.io/?';
+                const targetUrl = `https://api.notion.com/v1/databases/${credentials.dbId}/query`;
+                
+                while (hasMore) {
+                    const body = nextCursor ? { start_cursor: nextCursor } : {};
+                    const response = await fetch(proxyUrl + encodeURIComponent(targetUrl), {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${credentials.apiKey}`,
+                            'Notion-Version': '2022-06-28',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(body)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('권한 없음 또는 잘못된 ID');
+                    }
+                    
+                    const data = await response.json();
+                    totalCount += data.results.length;
+                    hasMore = data.has_more;
+                    nextCursor = data.next_cursor;
+                }
+                
+                totalCount = Math.max(0, totalCount);
+                if (currentCount !== totalCount) {
+                    currentCount = totalCount;
+                    triggerAnimation();
+                    saveState();
+                }
+                
+                syncText.innerText = '동기화 완료';
+                setTimeout(() => { if(!btnSync.classList.contains('syncing')) syncText.innerText = '노션 동기화'; }, 2000);
+                
+            } catch (error) {
+                console.error(error);
+                syncText.innerText = '동기화 실패';
+                setTimeout(() => { syncText.innerText = '다시 시도'; }, 2000);
+            } finally {
+                btnSync.classList.remove('syncing');
+            }
+        }
+
+        btnIncrease.addEventListener('click', () => {
+            currentCount++;
+            triggerAnimation();
+            saveState();
+        });
+
+        btnDecrease.addEventListener('click', () => {
+            if (currentCount > 0) {
+                currentCount--;
+                triggerAnimation();
+                saveState();
+            }
+        });
+        
+        btnSync.addEventListener('click', fetchNotionData);
+
+        btnOpenSettings.addEventListener('click', () => {
+            inputApiKey.value = credentials.apiKey;
+            inputDbId.value = credentials.dbId;
+            settingsModal.classList.add('active');
+        });
+        
+        btnCancelSettings.addEventListener('click', () => {
+            settingsModal.classList.remove('active');
+        });
+        
+        btnSaveSettings.addEventListener('click', () => {
+            credentials.apiKey = inputApiKey.value.trim();
+            credentials.dbId = inputDbId.value.trim();
+            
+            localStorage.setItem(CREDS_KEY, JSON.stringify(credentials));
+            settingsModal.classList.remove('active');
+            updateMode();
+            
+            if (credentials.apiKey && credentials.dbId) {
+                fetchNotionData();
+            }
+        });
+        
+        btnDisconnect.addEventListener('click', () => {
+            credentials = { apiKey: '', dbId: '' };
+            localStorage.removeItem(CREDS_KEY);
+            settingsModal.classList.remove('active');
+            updateMode();
+        });
+
+        init();
+    </script>
+</body>
+</html>
